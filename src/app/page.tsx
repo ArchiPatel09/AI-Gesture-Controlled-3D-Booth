@@ -1,65 +1,90 @@
+// app/page.tsx
 "use client";
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { Trash2, ChevronRight } from "lucide-react";
 import { ShapeType } from "@/types";
 import { usePhotos } from "@/hooks/usePhotos";
+import { useTheme } from "@/components/ui/ThemeProvider";
 import Header from "@/components/ui/Header";
+import Footer from "@/components/ui/Footer";
 import UploadZone from "@/components/ui/UploadZone";
 import ShapeSelector from "@/components/ui/ShapeSelector";
 import PhotoStrip from "@/components/ui/PhotoStrip";
 import GestureHints from "@/components/ui/GestureHints";
 
+// Load ThreeScene only in browser (no SSR — it uses WebGL APIs)
 const ThreeScene = dynamic(() => import("@/components/three/ThreeScene"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center text-white/20 text-sm">
-      Loading 3D engine...
+    <div
+      className="w-full h-full flex flex-col items-center justify-center gap-3"
+      style={{ color: "var(--text-muted)" }}
+    >
+      <div
+        className="w-8 h-8 rounded-full border-2 animate-spin"
+        style={{
+          borderColor: "var(--border-strong)",
+          borderTopColor: "var(--accent)",
+        }}
+      />
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
+        Initializing 3D engine...
+      </span>
     </div>
   ),
 });
 
 export default function Home() {
-  const { photos, selectedIndex, addPhotos, removePhoto, clearAll, selectPhoto } =
-    usePhotos();
+  const { photos, selectedIndex, addPhotos, removePhoto, clearAll, selectPhoto } = usePhotos();
   const [shape, setShape] = useState<ShapeType>("sphere");
+  const { theme } = useTheme();
 
-  // ✅ No <html> or <body> here — just your page content directly
   return (
     <div
       className="flex flex-col h-screen w-screen overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(135deg, #0a0a1a 0%, #0d1230 50%, #0a0a1a 100%)",
-        fontFamily: "'Segoe UI', system-ui, sans-serif",
-      }}
+      style={{ background: "var(--bg-base)", fontFamily: "var(--font-sans)" }}
     >
-      {/* Ambient background effects */}
-      <div className="pointer-events-none absolute inset-0 z-0">
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `radial-gradient(ellipse at 20% 20%, rgba(68,136,255,0.08) 0%, transparent 55%),
-                         radial-gradient(ellipse at 80% 80%, rgba(255,68,136,0.06) 0%, transparent 55%)`,
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `linear-gradient(rgba(68,136,255,0.04) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(68,136,255,0.04) 1px, transparent 1px)`,
-            backgroundSize: "60px 60px",
-          }}
-        />
-      </div>
+      {/* ── HEADER ─────────────────────────────────────── */}
+      <Header photoCount={photos.length} shape={shape} />
 
-      {/* Header */}
-      <Header photoCount={photos.length} />
-
-      {/* Main content area */}
+      {/* ── MAIN AREA ──────────────────────────────────── */}
       <div className="flex flex-1 relative overflow-hidden">
 
-        {/* 3D Canvas */}
+        {/* Background ambience — changes with theme */}
+        <div className="pointer-events-none absolute inset-0 z-0">
+          {theme === "dark" ? (
+            <>
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `radial-gradient(ellipse at 15% 25%, rgba(82,152,255,0.07) 0%, transparent 55%),
+                               radial-gradient(ellipse at 85% 75%, rgba(0,212,255,0.05) 0%, transparent 55%)`,
+                }}
+              />
+              {/* Grid lines */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `linear-gradient(rgba(82,152,255,0.04) 1px, transparent 1px),
+                                    linear-gradient(90deg, rgba(82,152,255,0.04) 1px, transparent 1px)`,
+                  backgroundSize: "64px 64px",
+                }}
+              />
+            </>
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `radial-gradient(ellipse at 20% 20%, rgba(59,126,245,0.06) 0%, transparent 55%),
+                             radial-gradient(ellipse at 80% 80%, rgba(0,144,200,0.04) 0%, transparent 55%)`,
+              }}
+            />
+          )}
+        </div>
+
+        {/* 3D Canvas — fills the whole right area behind sidebar */}
         <div className="absolute inset-0 z-0">
           {photos.length > 0 ? (
             <ThreeScene
@@ -69,95 +94,214 @@ export default function Home() {
               onSelectPhoto={selectPhoto}
             />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-white/15 select-none">
-              <div className="text-8xl opacity-20">🌐</div>
-              <p className="text-lg font-semibold">Upload photos to see them in 3D</p>
-              <p className="text-sm">Supports JPG, PNG, WebP, GIF</p>
+            /* Empty state */
+            <div
+              className="w-full h-full flex flex-col items-center justify-center gap-4 select-none"
+              style={{ paddingLeft: "280px" }}
+            >
+              <div
+                style={{
+                  color: "var(--text-muted)",
+                  fontSize: "72px",
+                  opacity: 0.25,
+                  lineHeight: 1,
+                }}
+              >
+                ◉
+              </div>
+              <div className="text-center">
+                <p
+                  style={{ color: "var(--text-secondary)", fontFamily: "var(--font-sans)" }}
+                  className="text-base font-semibold mb-1"
+                >
+                  Your 3D scene is empty
+                </p>
+                <p
+                  style={{
+                    color: "var(--text-muted)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "11px",
+                  }}
+                >
+                  Upload photos from the sidebar to begin
+                </p>
+              </div>
+              {/* Arrow pointing left */}
+              <div
+                className="flex items-center gap-2 mt-2"
+                style={{ color: "var(--accent)", fontSize: "12px", fontFamily: "var(--font-mono)" }}
+              >
+                <ChevronRight size={14} className="rotate-180" />
+                Start by uploading photos
+              </div>
             </div>
           )}
         </div>
 
-        {/* Left Sidebar */}
-        <aside className="relative z-10 w-64 flex flex-col gap-3 p-4 overflow-y-auto">
-          <div className="bg-black/50 backdrop-blur-2xl rounded-2xl border border-white/[0.07] p-4">
-            <p className="text-white/40 text-[11px] font-semibold uppercase tracking-widest mb-3">
-              Upload Photos
-            </p>
-            <UploadZone onFiles={addPhotos} />
-          </div>
+        {/* ── LEFT SIDEBAR ─────────────────────────────── */}
+        <aside
+          className="relative z-10 w-[268px] flex flex-col gap-0 overflow-y-auto flex-shrink-0"
+          style={{
+            background: "var(--sidebar-bg)",
+            borderRight: "1px solid var(--border)",
+            backdropFilter: "blur(24px) saturate(180%)",
+            WebkitBackdropFilter: "blur(24px) saturate(180%)",
+          }}
+        >
+          {/* Upload section */}
+          <SidebarSection label="Upload Photos" icon="↑">
+            <UploadZone onFiles={addPhotos} currentCount={photos.length} />
+          </SidebarSection>
 
-          <div className="bg-black/50 backdrop-blur-2xl rounded-2xl border border-white/[0.07] p-4">
-            <p className="text-white/40 text-[11px] font-semibold uppercase tracking-widest mb-3">
-              3D Shape
-            </p>
+          {/* Divider */}
+          <div style={{ height: "1px", background: "var(--border)" }} />
+
+          {/* Shape section */}
+          <SidebarSection label="3D Shape" icon="◈">
             <ShapeSelector current={shape} onChange={setShape} />
-          </div>
+          </SidebarSection>
 
-          <div className="bg-black/50 backdrop-blur-2xl rounded-2xl border border-white/[0.07] p-4">
-            <p className="text-white/40 text-[11px] font-semibold uppercase tracking-widest mb-3">
-              Controls
-            </p>
+          {/* Divider */}
+          <div style={{ height: "1px", background: "var(--border)" }} />
+
+          {/* Controls section */}
+          <SidebarSection label="Controls" icon="⌘">
             <GestureHints />
-          </div>
+          </SidebarSection>
 
+          {/* Spacer pushes clear button to bottom */}
+          <div className="flex-1" />
+
+          {/* Clear all */}
           {photos.length > 0 && (
-            <button
-              onClick={clearAll}
-              className="w-full py-2.5 rounded-xl border border-red-500/25 bg-red-500/[0.07] text-red-400/70 text-xs font-medium hover:bg-red-500/15 hover:text-red-400 transition-all cursor-pointer"
+            <div
+              style={{ borderTop: "1px solid var(--border)", padding: "12px 16px" }}
             >
-              🗑️ Clear All Photos
-            </button>
+              <button
+                onClick={clearAll}
+                style={{
+                  background: "var(--danger-dim)",
+                  border: "1px solid rgba(255,77,106,0.25)",
+                  color: "var(--danger)",
+                  fontFamily: "var(--font-sans)",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+                className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-medium hover:opacity-90 transition-opacity"
+              >
+                <Trash2 size={13} strokeWidth={2} />
+                Clear all {photos.length} photos
+              </button>
+            </div>
           )}
         </aside>
 
-        {/* Selected photo detail */}
+        {/* ── SELECTED PHOTO PANEL (top-right) ─────────── */}
         {selectedIndex !== null && photos[selectedIndex] && (
-          <div className="absolute top-4 right-4 z-10 bg-black/80 backdrop-blur-2xl rounded-2xl border border-cyan-400/30 p-4 w-48 shadow-[0_0_30px_rgba(0,245,255,0.15)]">
+          <div
+            className="absolute top-4 right-4 z-10 w-52"
+            style={{
+              background: "var(--bg-glass)",
+              border: "1px solid var(--border-accent)",
+              borderRadius: "20px",
+              padding: "16px",
+              boxShadow: "var(--shadow-accent2)",
+              backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
+            }}
+          >
             <img
               src={photos[selectedIndex].url}
               alt="selected"
-              className="w-full rounded-lg mb-3 object-cover"
+              className="w-full object-cover mb-3"
+              style={{ borderRadius: "12px", maxHeight: "140px" }}
             />
-            <p className="text-white text-xs font-semibold mb-1">
-              📷 Photo #{selectedIndex + 1}
-            </p>
-            <p className="text-white/35 text-[10px] break-all leading-relaxed mb-3">
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <p
+                style={{
+                  color: "var(--text-primary)",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                }}
+              >
+                Photo #{selectedIndex + 1}
+              </p>
+              <span
+                style={{
+                  background: "var(--accent-dim)",
+                  color: "var(--accent)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "9px",
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                }}
+              >
+                SELECTED
+              </span>
+            </div>
+            <p
+              style={{
+                color: "var(--text-muted)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "10px",
+                wordBreak: "break-all",
+                lineHeight: 1.5,
+              }}
+              className="mb-3"
+            >
               {photos[selectedIndex].name}
             </p>
             <button
               onClick={() => selectPhoto(selectedIndex)}
-              className="w-full py-1.5 rounded-lg border border-white/10 bg-white/[0.05] text-white/40 text-[11px] hover:text-white/70 transition-colors cursor-pointer"
+              style={{
+                width: "100%",
+                background: "var(--bg-hover)",
+                border: "1px solid var(--border-strong)",
+                color: "var(--text-secondary)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "10px",
+                cursor: "pointer",
+                padding: "7px",
+                borderRadius: "10px",
+              }}
+              className="hover:text-[var(--text-primary)] transition-colors"
             >
-              Deselect
+              Deselect ✕
             </button>
-          </div>
-        )}
-
-        {/* Welcome hint */}
-        {photos.length === 0 && (
-          <div
-            className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none"
-            style={{ paddingLeft: "256px" }}
-          >
-            <div className="text-center text-white/30 select-none">
-              <p className="text-sm mb-2">👈 Upload photos from the left panel</p>
-              <p className="text-xs text-white/20">
-                Then arrange them in beautiful 3D shapes
-              </p>
-            </div>
           </div>
         )}
       </div>
 
-      {/* Bottom photo strip */}
+      {/* ── BOTTOM STRIP (photo gallery) ─────────────── */}
       {photos.length > 0 && (
         <div
-          className="relative z-10 bg-black/60 backdrop-blur-2xl border-t border-white/[0.06] px-4 py-3 flex-shrink-0"
-          style={{ marginLeft: "256px" }}
+          style={{
+            marginLeft: "268px",
+            background: "var(--bg-glass)",
+            borderTop: "1px solid var(--border)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            padding: "10px 16px 12px",
+            flexShrink: 0,
+            position: "relative",
+            zIndex: 10,
+          }}
         >
-          <p className="text-white/30 text-[10px] uppercase tracking-widest font-semibold mb-2">
-            Gallery — {photos.length} photos
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <span className="section-label">
+              Gallery — {photos.length} photo{photos.length !== 1 ? "s" : ""}
+            </span>
+            <span
+              style={{
+                color: "var(--text-muted)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "9px",
+              }}
+            >
+              Click to select · Hover to remove
+            </span>
+          </div>
           <PhotoStrip
             photos={photos}
             selectedIndex={selectedIndex}
@@ -167,17 +311,39 @@ export default function Home() {
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="relative z-10 flex items-center justify-between px-6 py-2 border-t border-white/[0.05] bg-black/30 backdrop-blur-xl flex-shrink-0">
-        <span className="text-white/20 text-[11px]">
-          Phase 1 of 4 — Core 3D Engine ✦ Next: Gesture Controls
+      {/* ── FOOTER ─────────────────────────────────────── */}
+      <Footer />
+    </div>
+  );
+}
+
+// ── Sidebar section wrapper ──────────────────────────────────
+function SidebarSection({
+  label,
+  icon,
+  children,
+}: {
+  label: string;
+  icon: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ padding: "16px" }}>
+      <div className="flex items-center gap-2 mb-3">
+        <span
+          style={{
+            color: "var(--accent)",
+            fontSize: "12px",
+            lineHeight: 1,
+            width: "16px",
+            textAlign: "center",
+          }}
+        >
+          {icon}
         </span>
-        <div className="flex gap-4 text-[11px]">
-          <span className="text-green-400/60">● Three.js</span>
-          <span className="text-blue-400/60">● WebGL 2.0</span>
-          <span className="text-pink-400/60">● React 18</span>
-        </div>
-      </footer>
+        <span className="section-label">{label}</span>
+      </div>
+      {children}
     </div>
   );
 }

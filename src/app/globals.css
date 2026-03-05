@@ -1,21 +1,130 @@
+/* app/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+/* ─── DARK THEME ────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --bg-base:     #060812;
+  --bg-surface:  #0c1020;
+  --bg-elevated: #111827;
+  --bg-glass:    rgba(10, 14, 28, 0.85);
+  --bg-hover:    rgba(255, 255, 255, 0.05);
+
+  --border:        rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-accent: rgba(99, 162, 255, 0.55);
+
+  --text-primary:   #e8f0ff;
+  --text-secondary: #8899cc;
+  --text-muted:     #4a5878;
+  --text-accent:    #63a2ff;
+
+  --accent:        #63a2ff;
+  --accent-bright: #85b8ff;
+  --accent-dim:    rgba(99, 162, 255, 0.18);
+  --accent-glow:   rgba(99, 162, 255, 0.4);
+  --accent2:       #00deff;
+  --accent2-bright:#33e8ff;
+  --accent2-dim:   rgba(0, 222, 255, 0.15);
+  --accent2-glow:  rgba(0, 222, 255, 0.35);
+  --accent3:       #a78bfa;
+  --accent3-dim:   rgba(167, 139, 250, 0.15);
+
+  --danger:     #ff5577;
+  --danger-dim: rgba(255, 85, 119, 0.14);
+  --success:    #34d399;
+
+  --shadow-sm:      0 2px 6px rgba(0, 0, 0, 0.5);
+  --shadow-md:      0 6px 20px rgba(0, 0, 0, 0.65);
+  --shadow-lg:      0 12px 40px rgba(0, 0, 0, 0.75);
+  --shadow-accent:  0 0 30px rgba(99, 162, 255, 0.3);
+  --shadow-accent2: 0 0 24px rgba(0, 222, 255, 0.25);
+
+  /* Header gets a real gradient background */
+  --header-bg: linear-gradient(135deg, #0a0e20 0%, #0e1428 50%, #0a1220 100%);
+  --header-border: rgba(99, 162, 255, 0.2);
+  --sidebar-bg: linear-gradient(180deg, #0a0e20 0%, #080c1a 100%);
+  --footer-bg: rgba(5, 7, 14, 0.98);
 }
 
-html,
+/* ─── LIGHT THEME ───────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-base:     #eef2ff;
+  --bg-surface:  #ffffff;
+  --bg-elevated: #e0e8ff;
+  --bg-glass:    rgba(255, 255, 255, 0.92);
+  --bg-hover:    rgba(59, 126, 245, 0.05);
+
+  --border:        rgba(59, 100, 220, 0.1);
+  --border-strong: rgba(59, 100, 220, 0.2);
+  --border-accent: rgba(59, 126, 245, 0.55);
+
+  --text-primary:   #060e30;
+  --text-secondary: #3a4a80;
+  --text-muted:     #8090b8;
+  --text-accent:    #1a5fe8;
+
+  --accent:        #2563eb;
+  --accent-bright: #3b7ef5;
+  --accent-dim:    rgba(37, 99, 235, 0.12);
+  --accent-glow:   rgba(37, 99, 235, 0.25);
+  --accent2:       #0088cc;
+  --accent2-bright:#0099ee;
+  --accent2-dim:   rgba(0, 136, 204, 0.12);
+  --accent2-glow:  rgba(0, 136, 204, 0.2);
+  --accent3:       #7c3aed;
+  --accent3-dim:   rgba(124, 58, 237, 0.1);
+
+  --danger:     #dc2626;
+  --danger-dim: rgba(220, 38, 38, 0.08);
+  --success:    #059669;
+
+  --shadow-sm:      0 2px 6px rgba(0, 30, 100, 0.08);
+  --shadow-md:      0 6px 20px rgba(0, 30, 100, 0.12);
+  --shadow-lg:      0 12px 40px rgba(0, 30, 100, 0.16);
+  --shadow-accent:  0 0 30px rgba(37, 99, 235, 0.18);
+  --shadow-accent2: 0 0 24px rgba(0, 136, 204, 0.14);
+
+  --header-bg: linear-gradient(135deg, #ffffff 0%, #f0f5ff 50%, #e8f0ff 100%);
+  --header-border: rgba(37, 99, 235, 0.18);
+  --sidebar-bg: linear-gradient(180deg, #ffffff 0%, #f0f4ff 100%);
+  --footer-bg: rgba(224, 232, 255, 0.98);
+}
+
+/* ─── Global ────────────────────────────────────────────────── */
 body {
-  height: 100%;
-  overflow: hidden;
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: 15px;
 }
 
-/* Custom thin scrollbar for photo strip */
-.scrollbar-thin::-webkit-scrollbar { height: 4px; }
-.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+/* Smooth theme transitions */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, box-shadow, opacity;
+  transition-duration: 0.25s;
+  transition-timing-function: ease;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ─── Utility classes ───────────────────────────────────────── */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
