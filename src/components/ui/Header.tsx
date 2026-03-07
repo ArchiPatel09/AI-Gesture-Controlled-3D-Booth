@@ -1,4 +1,3 @@
-// components/ui/Header.tsx
 "use client";
 
 import { Sun, Moon } from "lucide-react";

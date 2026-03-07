@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Trash2, ChevronRight } from "lucide-react";
 import { ShapeType } from "@/types";
 import { usePhotos } from "@/hooks/usePhotos";
+import { useHandGestures } from "@/hooks/useHandGestures";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import Header from "@/components/ui/Header";
 import Footer from "@/components/ui/Footer";
@@ -13,78 +14,71 @@ import UploadZone from "@/components/ui/UploadZone";
 import ShapeSelector from "@/components/ui/ShapeSelector";
 import PhotoStrip from "@/components/ui/PhotoStrip";
 import GestureHints from "@/components/ui/GestureHints";
+import GesturePanel from "@/components/camera/GesturePanel";
 
-// Load ThreeScene only in browser (no SSR — it uses WebGL APIs)
 const ThreeScene = dynamic(() => import("@/components/three/ThreeScene"), {
   ssr: false,
   loading: () => (
-    <div
-      className="w-full h-full flex flex-col items-center justify-center gap-3"
-      style={{ color: "var(--text-muted)" }}
-    >
-      <div
-        className="w-8 h-8 rounded-full border-2 animate-spin"
-        style={{
-          borderColor: "var(--border-strong)",
-          borderTopColor: "var(--accent)",
-        }}
-      />
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
+    <div className="w-full h-full flex flex-col items-center justify-center gap-4"
+      style={{ color: "var(--text-muted)" }}>
+      <div className="w-10 h-10 rounded-full border-2 animate-spin"
+        style={{ borderColor: "var(--border-strong)", borderTopColor: "var(--accent)" }} />
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px" }}>
         Initializing 3D engine...
       </span>
     </div>
   ),
 });
 
+const SIDEBAR_W = 300;
+
 export default function Home() {
   const { photos, selectedIndex, addPhotos, removePhoto, clearAll, selectPhoto } = usePhotos();
   const [shape, setShape] = useState<ShapeType>("sphere");
   const { theme } = useTheme();
+
+  // Phase 2: gesture hook — returns refs + state + controls
+  const {
+    videoRef,
+    canvasRef,
+    gestureStateRef,  // ← passed to ThreeScene, read each animation frame
+    isLoading: gestureLoading,
+    isActive: gestureActive,
+    error: gestureError,
+    gestureLabel,
+    start: startGestures,
+    stop: stopGestures,
+  } = useHandGestures();
 
   return (
     <div
       className="flex flex-col h-screen w-screen overflow-hidden"
       style={{ background: "var(--bg-base)", fontFamily: "var(--font-sans)" }}
     >
-      {/* ── HEADER ─────────────────────────────────────── */}
       <Header photoCount={photos.length} shape={shape} />
 
-      {/* ── MAIN AREA ──────────────────────────────────── */}
       <div className="flex flex-1 relative overflow-hidden">
 
-        {/* Background ambience — changes with theme */}
+        {/* Background ambience */}
         <div className="pointer-events-none absolute inset-0 z-0">
-          {theme === "dark" ? (
-            <>
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `radial-gradient(ellipse at 15% 25%, rgba(82,152,255,0.07) 0%, transparent 55%),
-                               radial-gradient(ellipse at 85% 75%, rgba(0,212,255,0.05) 0%, transparent 55%)`,
-                }}
-              />
-              {/* Grid lines */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  backgroundImage: `linear-gradient(rgba(82,152,255,0.04) 1px, transparent 1px),
-                                    linear-gradient(90deg, rgba(82,152,255,0.04) 1px, transparent 1px)`,
-                  backgroundSize: "64px 64px",
-                }}
-              />
-            </>
-          ) : (
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `radial-gradient(ellipse at 20% 20%, rgba(59,126,245,0.06) 0%, transparent 55%),
-                             radial-gradient(ellipse at 80% 80%, rgba(0,144,200,0.04) 0%, transparent 55%)`,
-              }}
-            />
+          <div className="absolute inset-0" style={{
+            background: theme === "dark"
+              ? `radial-gradient(ellipse at 15% 30%, rgba(99,162,255,0.09) 0%, transparent 55%),
+                 radial-gradient(ellipse at 85% 70%, rgba(0,222,255,0.06) 0%, transparent 55%),
+                 radial-gradient(ellipse at 50% 50%, rgba(167,139,250,0.04) 0%, transparent 60%)`
+              : `radial-gradient(ellipse at 20% 20%, rgba(37,99,235,0.07) 0%, transparent 55%),
+                 radial-gradient(ellipse at 80% 80%, rgba(0,136,204,0.05) 0%, transparent 55%)`,
+          }} />
+          {theme === "dark" && (
+            <div className="absolute inset-0" style={{
+              backgroundImage: `linear-gradient(rgba(99,162,255,0.04) 1px, transparent 1px),
+                                linear-gradient(90deg, rgba(99,162,255,0.04) 1px, transparent 1px)`,
+              backgroundSize: "72px 72px",
+            }} />
           )}
         </div>
 
-        {/* 3D Canvas — fills the whole right area behind sidebar */}
+        {/* 3D Canvas */}
         <div className="absolute inset-0 z-0">
           {photos.length > 0 ? (
             <ThreeScene
@@ -92,179 +86,171 @@ export default function Home() {
               shape={shape}
               selectedIndex={selectedIndex}
               onSelectPhoto={selectPhoto}
-            />
+              gestureStateRef={gestureStateRef}
+            />   
           ) : (
-            /* Empty state */
             <div
-              className="w-full h-full flex flex-col items-center justify-center gap-4 select-none"
-              style={{ paddingLeft: "280px" }}
+              className="w-full h-full flex flex-col items-center justify-center gap-5 select-none"
+              style={{ paddingLeft: `${SIDEBAR_W}px` }}
             >
-              <div
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: "72px",
-                  opacity: 0.25,
-                  lineHeight: 1,
-                }}
-              >
-                ◉
-              </div>
+              <div style={{ fontSize: "90px", opacity: 0.12, lineHeight: 1, color: "var(--accent)" }}>◉</div>
               <div className="text-center">
-                <p
-                  style={{ color: "var(--text-secondary)", fontFamily: "var(--font-sans)" }}
-                  className="text-base font-semibold mb-1"
-                >
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: "20px", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "8px" }}>
                   Your 3D scene is empty
                 </p>
-                <p
-                  style={{
-                    color: "var(--text-muted)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "11px",
-                  }}
-                >
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--text-muted)" }}>
                   Upload photos from the sidebar to begin
                 </p>
               </div>
-              {/* Arrow pointing left */}
-              <div
-                className="flex items-center gap-2 mt-2"
-                style={{ color: "var(--accent)", fontSize: "12px", fontFamily: "var(--font-mono)" }}
-              >
-                <ChevronRight size={14} className="rotate-180" />
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: "13px", fontWeight: 600 }}>
+                <ChevronRight size={16} className="rotate-180" />
                 Start by uploading photos
               </div>
             </div>
           )}
         </div>
 
-        {/* ── LEFT SIDEBAR ─────────────────────────────── */}
-        <aside
-          className="relative z-10 w-[268px] flex flex-col gap-0 overflow-y-auto flex-shrink-0"
+        {}
+        {}
+        <div
           style={{
+            position: "absolute",
+            bottom: "20px",
+            right: "20px",
+            zIndex: 15,
+          }}
+        >
+          <GesturePanel
+            videoRef={videoRef }
+            canvasRef={canvasRef}
+            isLoading={gestureLoading}
+            isActive={gestureActive}
+            error={gestureError}
+            gestureLabel={gestureLabel}
+            onStart={startGestures}
+            onStop={stopGestures}
+          />
+        </div>
+
+        {}
+        <aside
+          className="relative z-10 flex flex-col overflow-y-auto flex-shrink-0"
+          style={{
+            width: `${SIDEBAR_W}px`,
             background: "var(--sidebar-bg)",
-            borderRight: "1px solid var(--border)",
+            borderRight: "1px solid var(--border-strong)",
             backdropFilter: "blur(24px) saturate(180%)",
             WebkitBackdropFilter: "blur(24px) saturate(180%)",
           }}
         >
-          {/* Upload section */}
-          <SidebarSection label="Upload Photos" icon="↑">
+          <SidebarSection label="Upload Photos" icon="↑" accent="var(--accent)">
             <UploadZone onFiles={addPhotos} currentCount={photos.length} />
           </SidebarSection>
 
-          {/* Divider */}
-          <div style={{ height: "1px", background: "var(--border)" }} />
+          <Divider />
 
-          {/* Shape section */}
-          <SidebarSection label="3D Shape" icon="◈">
+          <SidebarSection label="3D Shape" icon="◈" accent="var(--accent2)">
             <ShapeSelector current={shape} onChange={setShape} />
           </SidebarSection>
 
-          {/* Divider */}
-          <div style={{ height: "1px", background: "var(--border)" }} />
+          <Divider />
 
-          {/* Controls section */}
-          <SidebarSection label="Controls" icon="⌘">
+          <SidebarSection label="Mouse Controls" icon="⌘" accent="var(--accent3)">
             <GestureHints />
           </SidebarSection>
 
-          {/* Spacer pushes clear button to bottom */}
+          {/* Gesture mode status in sidebar */}
+          {gestureActive && (
+            <>
+              <Divider />
+              <div style={{ padding: "16px 18px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                  <span style={{ color: "#34d399", fontSize: "14px" }}>✋</span>
+                  <span className="section-label">Gesture Mode Active</span>
+                </div>
+                <div
+                  style={{
+                    background: "rgba(52,211,153,0.08)",
+                    border: "1px solid rgba(52,211,153,0.25)",
+                    borderRadius: "10px",
+                    padding: "10px 12px",
+                  }}
+                >
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "#34d399", fontWeight: 600 }}>
+                    Hand controls override mouse rotation. Mouse still works.
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+
           <div className="flex-1" />
 
-          {/* Clear all */}
           {photos.length > 0 && (
-            <div
-              style={{ borderTop: "1px solid var(--border)", padding: "12px 16px" }}
-            >
+            <div style={{ borderTop: "1px solid var(--border)", padding: "16px" }}>
               <button
                 onClick={clearAll}
                 style={{
+                  width: "100%",
                   background: "var(--danger-dim)",
-                  border: "1px solid rgba(255,77,106,0.25)",
+                  border: "1.5px solid rgba(255,85,119,0.3)",
                   color: "var(--danger)",
                   fontFamily: "var(--font-sans)",
+                  fontSize: "13px",
+                  fontWeight: 600,
                   cursor: "pointer",
-                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
                 }}
-                className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-medium hover:opacity-90 transition-opacity"
+                className="hover:opacity-90 transition-opacity"
               >
-                <Trash2 size={13} strokeWidth={2} />
+                <Trash2 size={15} strokeWidth={2} />
                 Clear all {photos.length} photos
               </button>
             </div>
           )}
         </aside>
 
-        {/* ── SELECTED PHOTO PANEL (top-right) ─────────── */}
+        {/* Selected photo panel */}
         {selectedIndex !== null && photos[selectedIndex] && (
           <div
-            className="absolute top-4 right-4 z-10 w-52"
+            className="absolute top-4 z-10"
             style={{
+              right: "16px",
+              // Shift up if gesture panel is active (so they don't overlap)
+              bottom: gestureActive ? "auto" : undefined,
+              width: "220px",
               background: "var(--bg-glass)",
-              border: "1px solid var(--border-accent)",
+              border: "1.5px solid var(--border-accent)",
               borderRadius: "20px",
-              padding: "16px",
+              padding: "18px",
               boxShadow: "var(--shadow-accent2)",
               backdropFilter: "blur(24px)",
               WebkitBackdropFilter: "blur(24px)",
             }}
           >
-            <img
-              src={photos[selectedIndex].url}
-              alt="selected"
+            <img src={photos[selectedIndex].url} alt="selected"
               className="w-full object-cover mb-3"
-              style={{ borderRadius: "12px", maxHeight: "140px" }}
+              style={{ borderRadius: "12px", maxHeight: "150px" }}
             />
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <p
-                style={{
-                  color: "var(--text-primary)",
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                }}
-              >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+              <p style={{ fontFamily: "var(--font-sans)", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)" }}>
                 Photo #{selectedIndex + 1}
               </p>
-              <span
-                style={{
-                  background: "var(--accent-dim)",
-                  color: "var(--accent)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "9px",
-                  padding: "2px 6px",
-                  borderRadius: "4px",
-                }}
-              >
+              <span style={{ background: "var(--accent-dim)", color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: "10px", fontWeight: 600, padding: "3px 8px", borderRadius: "6px" }}>
                 SELECTED
               </span>
             </div>
-            <p
-              style={{
-                color: "var(--text-muted)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "10px",
-                wordBreak: "break-all",
-                lineHeight: 1.5,
-              }}
-              className="mb-3"
-            >
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", wordBreak: "break-all", lineHeight: 1.5, marginBottom: "12px" }}>
               {photos[selectedIndex].name}
             </p>
             <button
               onClick={() => selectPhoto(selectedIndex)}
-              style={{
-                width: "100%",
-                background: "var(--bg-hover)",
-                border: "1px solid var(--border-strong)",
-                color: "var(--text-secondary)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "10px",
-                cursor: "pointer",
-                padding: "7px",
-                borderRadius: "10px",
-              }}
+              style={{ width: "100%", background: "var(--bg-hover)", border: "1px solid var(--border-strong)", color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 500, cursor: "pointer", padding: "8px", borderRadius: "10px" }}
               className="hover:text-[var(--text-primary)] transition-colors"
             >
               Deselect ✕
@@ -273,74 +259,31 @@ export default function Home() {
         )}
       </div>
 
-      {/* ── BOTTOM STRIP (photo gallery) ─────────────── */}
+      {/* Bottom gallery strip */}
       {photos.length > 0 && (
-        <div
-          style={{
-            marginLeft: "268px",
-            background: "var(--bg-glass)",
-            borderTop: "1px solid var(--border)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            padding: "10px 16px 12px",
-            flexShrink: 0,
-            position: "relative",
-            zIndex: 10,
-          }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="section-label">
-              Gallery — {photos.length} photo{photos.length !== 1 ? "s" : ""}
-            </span>
-            <span
-              style={{
-                color: "var(--text-muted)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "9px",
-              }}
-            >
-              Click to select · Hover to remove
-            </span>
+        <div style={{ marginLeft: `${SIDEBAR_W}px`, background: "var(--bg-glass)", borderTop: "1px solid var(--border-strong)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", padding: "12px 20px 14px", flexShrink: 0, position: "relative", zIndex: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+            <span className="section-label">Gallery — {photos.length} photo{photos.length !== 1 ? "s" : ""}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)" }}>Click to select · Hover to remove</span>
           </div>
-          <PhotoStrip
-            photos={photos}
-            selectedIndex={selectedIndex}
-            onSelect={selectPhoto}
-            onRemove={removePhoto}
-          />
+          <PhotoStrip photos={photos} selectedIndex={selectedIndex} onSelect={selectPhoto} onRemove={removePhoto} />
         </div>
       )}
 
-      {/* ── FOOTER ─────────────────────────────────────── */}
       <Footer />
     </div>
   );
 }
 
-// ── Sidebar section wrapper ──────────────────────────────────
-function SidebarSection({
-  label,
-  icon,
-  children,
-}: {
-  label: string;
-  icon: string;
-  children: React.ReactNode;
-}) {
+function Divider() {
+  return <div style={{ height: "1px", background: "var(--border)", margin: "0 16px" }} />;
+}
+
+function SidebarSection({ label, icon, accent, children }: { label: string; icon: string; accent: string; children: React.ReactNode }) {
   return (
-    <div style={{ padding: "16px" }}>
-      <div className="flex items-center gap-2 mb-3">
-        <span
-          style={{
-            color: "var(--accent)",
-            fontSize: "12px",
-            lineHeight: 1,
-            width: "16px",
-            textAlign: "center",
-          }}
-        >
-          {icon}
-        </span>
+    <div style={{ padding: "20px 18px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
+        <span style={{ color: accent, fontSize: "14px", lineHeight: 1, width: "18px", textAlign: "center" }}>{icon}</span>
         <span className="section-label">{label}</span>
       </div>
       {children}
