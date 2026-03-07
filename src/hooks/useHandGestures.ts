@@ -254,84 +254,103 @@ export function useHandGestures() {
   }, []);
 
   // ── start(): load MediaPipe and begin tracking ─────────────────
-  const start = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  // ── start(): load MediaPipe and begin tracking ─────────────────
+const start = useCallback(async () => {
+  setIsLoading(true);
+  setError(null);
 
-    try {
-      // Step 1: Load MediaPipe scripts from CDN (browser only — no SSR)
-      // These inject global variables: window.Hands, window.Camera
-      await Promise.all([
-        loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"),
-        loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"),
-      ]);
+  try {
+    // Step 1: Load MediaPipe scripts from CDN
+    await Promise.all([
+      loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"),
+      loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"),
+    ]);
 
-      // Step 2: Request webcam access
-      // facingMode: "user" = front-facing camera (selfie camera)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: "user" },
-        audio: false,
-      });
-      streamRef.current = stream;
+    // Step 2: Request webcam access FIRST (before touching the video element)
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: "user" },
+      audio: false,
+    });
+    streamRef.current = stream;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.playsInline = true;
-        await videoRef.current.play();
-      }
+    // Step 3: Wait 2 animation frames for React to finish rendering
+    // the <video> element inside WebcamView before we try to use it.
+    // Without this, videoRef.current is still null right after setState.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 
-      // Step 3: Initialize MediaPipe Hands model
-      // locateFile tells it where to find the .wasm and .tflite model files
-      const Hands = (window as any).Hands;
-      const hands = new Hands({
-        locateFile: (file: string) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-      });
-
-      hands.setOptions({
-        maxNumHands: 1,               // track 1 hand (better performance)
-        modelComplexity: 1,           // 0 = lite/fast, 1 = full/accurate
-        minDetectionConfidence: 0.7,  // how confident to initially detect a hand
-        minTrackingConfidence: 0.6,   // how confident to keep tracking it
-      });
-
-      // Register our result handler
-      hands.onResults(onResults);
-      handsRef.current = hands;
-
-      // Step 4: Start the Camera processing loop
-      // Camera from camera_utils handles the requestAnimationFrame loop,
-      // captures frames from the video, and sends them to the Hands model.
-      const Camera = (window as any).Camera;
-      const cam = new Camera(videoRef.current, {
-        onFrame: async () => {
-          if (handsRef.current && videoRef.current) {
-            await handsRef.current.send({ image: videoRef.current });
-          }
-        },
-        width: 640,
-        height: 480,
-      });
-
-      cam.start();
-      cameraRef.current = cam;
-      setIsActive(true);
-
-    } catch (err: any) {
-      // Handle common webcam errors with clear messages
-      if (err.name === "NotAllowedError") {
-        setError("Camera permission denied. Click the camera icon in your browser's address bar to allow access.");
-      } else if (err.name === "NotFoundError") {
-        setError("No webcam found. Please connect a camera and try again.");
-      } else if (err.name === "NotSupportedError") {
-        setError("Webcam not supported. Use a modern browser (Chrome/Firefox/Edge) over HTTPS.");
-      } else {
-        setError(err.message || "Failed to start gesture detection. Please try again.");
-      }
-    } finally {
-      setIsLoading(false);
+    // Step 4: Safety check — if still null after waiting, something is wrong
+    if (!videoRef.current) {
+      // Stop the stream we already acquired
+      stream.getTracks().forEach((t) => t.stop());
+      throw new Error(
+        "Video element not ready. Please click Enable again."
+      );
     }
-  }, [onResults]);
+
+    // Step 5: Attach stream to the video element
+    videoRef.current.srcObject = stream;
+    videoRef.current.playsInline = true;
+
+    // play() returns a Promise — we must await it
+    await videoRef.current.play();
+
+    // Step 6: Initialize MediaPipe Hands model
+    const Hands = (window as any).Hands;
+    if (!Hands) throw new Error("MediaPipe Hands failed to load from CDN. Check your internet connection.");
+
+    const hands = new Hands({
+      locateFile: (file: string) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.6,
+    });
+
+    hands.onResults(onResults);
+    handsRef.current = hands;
+
+    // Step 7: Start MediaPipe Camera loop
+    const Camera = (window as any).Camera;
+    if (!Camera) throw new Error("MediaPipe Camera utils failed to load from CDN.");
+
+    const cam = new Camera(videoRef.current, {
+      onFrame: async () => {
+        if (handsRef.current && videoRef.current) {
+          await handsRef.current.send({ image: videoRef.current });
+        }
+      },
+      width: 640,
+      height: 480,
+    });
+
+    cam.start();
+    cameraRef.current = cam;
+
+    // Only set active AFTER everything is running successfully
+    setIsActive(true);
+
+  } catch (err: any) {
+    // Clean up stream if we got one before the error
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+
+    if (err.name === "NotAllowedError") {
+      setError("Camera permission denied. Click the camera icon in your browser address bar to allow access.");
+    } else if (err.name === "NotFoundError") {
+      setError("No webcam found. Please connect a camera and try again.");
+    } else if (err.name === "NotSupportedError") {
+      setError("Webcam not supported in this browser. Please use Chrome, Firefox, or Edge.");
+    } else {
+      setError(err.message || "Failed to start gesture detection. Please try again.");
+    }
+  } finally {
+    setIsLoading(false);
+  }
+}, [onResults]);
 
   // ── stop(): clean up all resources ────────────────────────────
   const stop = useCallback(() => {
